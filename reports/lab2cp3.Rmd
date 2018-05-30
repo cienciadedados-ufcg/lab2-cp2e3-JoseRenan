@@ -1,0 +1,132 @@
+---
+title: "#Me Representa em 2016"
+output: 
+  html_document:
+    theme: cosmo
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(here)
+library(plotly)
+theme_set(theme_bw())
+```
+
+```{r echo=FALSE}
+respostas = read_csv(here::here("data/respostas-merepresenta-2016.csv"), 
+                     col_types = cols(.default = col_character(), 
+                                      nota_partido = col_integer(), 
+                                      votos_recebidos = col_integer()))
+
+# A versão long (em vez de wide) dos dados facilita muito pro ggplot:
+respostas_long = 
+    respostas %>% 
+    gather(key = "tema", 
+           value = "resposta", 
+           10:23)
+```
+
+O projeto Me Representa fez uma pesquisa em 2016 com candidatos a vereador de todo o Brasil. A pesquisa consistia de responder se o candidato apoia ou não as causas listadas abaixo:
+
+```{r echo=FALSE}
+names(respostas)[10:23] 
+```
+
+```{r echo=FALSE}
+respostas_aborto =
+    respostas_long %>% 
+    filter(tema == "Descriminalização do aborto") %>% 
+    mutate(eleito = grepl("ELEITO POR", situacao_eleitoral))
+```
+
+Com o resultado da pesquisa, eu pude ver que uma das causas menos apoiadas era a da descriminalização do aborto e isso me despertou a curiosidade de ver mais informações a respeito dos vereadores que apoiam e não apoiam essa causa.
+
+Abaixo podemos ver os vereadores que apoiam e não apoiam agrupados por partido e esse gráfico nos mostra duas coisas muito importantes. A primeira é que temos muito mais dados do PT e do PSOL que dos demais partidos, o que pode influenciar nas análises posteriores se considerarmos todo o conjunto de dados. A outra coisa que podemos notar é que em praticamente todos os partidos tem alguém que não apoia a causa.
+
+```{r echo=FALSE}
+apoio_aborto_partido = 
+    respostas_aborto %>%
+    group_by(sigla_partido) %>% 
+    summarise(apoio = sum(resposta == "S"), nao_apoio = sum(resposta == "N"), total=n())
+
+apoio_aborto_partido %>% 
+    plot_ly() %>%
+    add_trace(x = ~reorder(sigla_partido, total), y = ~apoio, type="bar", hoverinfo="text",
+              name="Apoiam", text = ~paste((apoio/total) * 100, '% de apoio')) %>%
+    add_trace(x = ~reorder(sigla_partido, total), y = ~nao_apoio, type="bar", hoverinfo="text",
+              name="Não apoiam", text = ~paste((nao_apoio/total) * 100, '% de rejeição')) %>%
+    layout(title = 'Vereadores apoiam/não apoiam a descriminalização do aborto',
+           barmode="stack",
+         xaxis = list(title = "Partidos"),
+         yaxis = list(side = 'left', title = 'Número de vereadores que responderam a pesquisa', showgrid = TRUE, zeroline = TRUE))
+```
+
+No gráfico abaixo, fazemos a mesma análise que foi feita anteriormente, porém agora agrupando por sexo, o que nos mostra que proporcionalmente, o assunto é mais apoiado por mulheres, apesar de maioria dos candidatos do gênero masculino apoiarem também.
+
+```{r echo=FALSE}
+respostas_aborto_genero =
+    respostas_aborto %>% 
+    group_by(genero) %>% 
+    summarise(apoio = sum(resposta == "S"), nao_apoio = sum(resposta == "N"), total=n(), proporcao=sum(resposta == "S") / n()) %>% 
+    mutate(genero = replace(genero, is.na(genero), "NÃO INFORMADO"))
+
+respostas_aborto_genero %>% 
+    plot_ly() %>%
+    add_trace(x = ~genero, y = ~apoio, type="bar", hoverinfo="text",
+              name="Apoiam", text = ~paste((apoio/total) * 100, '% de apoio')) %>%
+    add_trace(x = ~genero, y = ~nao_apoio, type="bar", hoverinfo="text",
+              name="Não apoiam", text = ~paste((nao_apoio/total) * 100, '% de rejeição')) %>%
+    layout(title = 'Vereadores apoiam/não apoiam a descriminalização do aborto por gênero',
+           barmode="stack",
+         xaxis = list(title = "Partidos"),
+         yaxis = list(side = 'left', title = 'Número de vereadores que responderam a pesquisa', showgrid = TRUE, zeroline = TRUE))
+```
+
+No primeiro gráfico, vimos que temos muito mais dados do PT e PSOL do que dos demais partidos, fazendo com que nosso modelo de agrupamento por gênero tivesse mais informação desses dois partidos que dos demais, daí, se traçarmos um gráfico agora sem os dados desses dois partidos vemos que o número de mulheres cai quase pela metade e também podemos ver que proporcionalmente a diferença de mulheres e homens que apoiam cresce bastante. Segundo [dados do TSE](http://www.tse.jus.br/eleicoes/estatisticas/eleicoes/eleicoes-anteriores/estatisticas-eleitorais-2016/resultados) das eleições de 2016, o PT e o PSOL não chegam a representar 6% do total de vereadores eleitos em 2016, o que nos leva a pensar que os dados dessa forma representam melhor a situação atual das bancadas de vereadores dos municípios brasileiros.
+
+```{r echo=FALSE}
+respostas_aborto_genero =
+    respostas_aborto %>%
+    filter(!(sigla_partido %in% c("PT", "PSOL"))) %>% 
+    group_by(genero) %>% 
+    summarise(apoio = sum(resposta == "S"), nao_apoio = sum(resposta == "N"), total=n(), proporcao=sum(resposta == "S") / n()) %>% 
+    mutate(genero = replace(genero, is.na(genero), "NÃO INFORMADO"))
+
+respostas_aborto_genero %>% 
+    plot_ly() %>%
+    add_trace(x = ~genero, y = ~apoio, type="bar", hoverinfo="text",
+              name="Apoiam", text = ~paste((apoio/total) * 100, '% de apoio')) %>%
+    add_trace(x = ~genero, y = ~nao_apoio, type="bar", hoverinfo="text",
+              name="Não apoiam", text = ~paste((nao_apoio/total) * 100, '% de rejeição')) %>%
+    layout(title = 'Vereadores apoiam/não apoiam a descriminalização do aborto por gênero',
+           barmode="stack",
+         xaxis = list(title = "Partidos"),
+         yaxis = list(side = 'left', title = 'Número de vereadores que responderam a pesquisa', showgrid = TRUE, zeroline = TRUE))
+```
+
+Abaixo temos o mesmo gráfico acima, porém contando apenas com os vereadores eleitos, o que nos leva a ver que temos pouquissimos dados de vereadores que foram eleitos. Isso se deve ao fato de como foi visto no item anterior, maioria dos dados são de candidatos do PSOL e PT que tiveram pouquíssimos vereadores eleitos em 2016. No entanto, dos dados que temos, percebemos que boa parte dos vereadores eleitos que responderam a pesquisa apoiam a causa.
+
+```{r echo=FALSE}
+respostas_aborto_genero =
+    respostas_aborto %>%
+    filter(eleito == TRUE) %>% 
+    group_by(genero) %>% 
+    summarise(apoio = sum(resposta == "S"), nao_apoio = sum(resposta == "N"), total=n(), proporcao=sum(resposta == "S") / n()) %>% 
+    mutate(genero = replace(genero, is.na(genero), "NÃO INFORMADO"))
+
+respostas_aborto_genero %>% 
+    plot_ly() %>%
+    add_trace(x = ~genero, y = ~apoio, type="bar", hoverinfo="text",
+              name="Apoiam", text = ~paste((apoio/total) * 100, '% de apoio')) %>%
+    add_trace(x = ~genero, y = ~nao_apoio, type="bar", hoverinfo="text",
+              name="Não apoiam", text = ~paste((nao_apoio/total) * 100, '% de rejeição')) %>%
+    layout(title = 'Vereadores eleitos apoiam/não apoiam a descriminalização do aborto por gênero',
+           barmode="stack",
+         xaxis = list(title = "Partidos"),
+         yaxis = list(side = 'left', title = 'Número de vereadores eleitos que responderam a pesquisa', showgrid = TRUE, zeroline = TRUE))
+```
+
